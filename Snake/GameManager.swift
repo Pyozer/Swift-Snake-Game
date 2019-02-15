@@ -22,8 +22,11 @@ class GameManager {
     var numCols: Int!
     
     var nextTime: Double?
-    var timeExtension: Double = 0.15
+    var timeExtension: Double = 0.12
     var playerDirection: PlayerDirection = .LEFT
+    
+    var scorePos: Point?
+    var currentScore: Int = 0
     
     init(scene: GameScene, numRows: Int, numCols: Int) {
         self.scene = scene
@@ -37,6 +40,7 @@ class GameManager {
         scene.playerPositions.append(Point(10, 11))
         scene.playerPositions.append(Point(10, 12))
         renderChange()
+        generateNewScorePos()
     }
 
     func update(time: Double) {
@@ -45,6 +49,7 @@ class GameManager {
         } else if time >= nextTime! {
             nextTime = time + timeExtension
             updatePlayerPosition()
+            checkForScore()
         }
     }
     
@@ -76,23 +81,49 @@ class GameManager {
         if scene.playerPositions.count > 0 {
             let x = scene.playerPositions[0].x
             let y = scene.playerPositions[0].y
-            if y > self.numRows {
+            if y >= self.numRows {
                 scene.playerPositions[0].y = 0
             } else if y < 0 {
-                scene.playerPositions[0].y = self.numRows
-            } else if x > self.numCols {
+                scene.playerPositions[0].y = self.numRows - 1
+            }
+            if x >= self.numCols {
                 scene.playerPositions[0].x = 0
             } else if x < 0 {
-                scene.playerPositions[0].x = self.numCols
+                scene.playerPositions[0].x = self.numCols - 1
             }
         }
         renderChange()
     }
+    
+    func checkForScore() {
+        if self.scorePos != nil && scene.playerPositions.count > 0 {
+            let playerPos: Point = scene.playerPositions[0]
+            if playerPos.equals(self.scorePos!) { // Player hit scorePos
+                currentScore += 1
+                scene.currentScore.text = "Score: \(currentScore)"
+                generateNewScorePos()
+            }
+        }
+    }
+    
+    func generateNewScorePos() {
+        var p: Point? = nil
+        // While score point is at same of player position, generate new one
+        while p == nil || contains(allPoint: scene.playerPositions, point: p!) {
+            p = Point(Int.random(in: 0 ..< numCols), Int.random(in: 0 ..< numRows))
+        }
+        self.scorePos = p!
+    }
 
     func renderChange() {
         for (node, point) in scene.gameArray {
-            if contains(allPoint: scene.playerPositions, point: point) {
+            let isScorePos = self.scorePos != nil && point.equals(self.scorePos!)
+            let isPlayerPos = contains(allPoint: scene.playerPositions, point: point)
+            
+            if isPlayerPos {
                 node.fillColor = SKColor.cyan
+            } else if isScorePos {
+                node.fillColor = SKColor.red
             } else {
                 node.fillColor = SKColor.clear
             }
