@@ -24,18 +24,30 @@ class Point {
 }
 
 class GameScene: SKScene {
-    var gameLogo: SKLabelNode!
-    var bestScore: SKLabelNode!
-    var playButton: SKShapeNode!
+    // Main screen
+    private var gameLogo: SKLabelNode!
+    private var bestScore: SKLabelNode!
+    private var playButton: SKShapeNode!
+    // Died screen
+    private var youDiedText: SKLabelNode!
     
-    var game: GameManager!
-    
+    // Game screen
+    private var game: GameManager!
     var currentScore: SKLabelNode!
-    var playerPositions: [Point] = []
-    var gameBG: SKShapeNode!
+    private var gameBG: SKShapeNode!
     var gameArray: [(node: SKShapeNode, point: Point)] = []
     
+    private var scaleOutAction: SKAction!
+    private var scaleInAction: SKAction!
+    private var moveOutsideTopAction: SKAction!
+    private var moveBackFromTopAction: SKAction!
+    
     override func didMove(to view: SKView) {
+        scaleInAction = SKAction.init(named: "ScaleIn")
+        scaleOutAction = SKAction.init(named: "ScaleOut")
+        moveOutsideTopAction = SKAction.init(named: "MoveOutsideTop")
+        moveBackFromTopAction = SKAction.init(named: "MoveBackFromTop")
+        
         initializeMenu()
         game = GameManager(scene: self, numRows: 30, numCols: 20)
         initializeGameView()
@@ -57,62 +69,48 @@ class GameScene: SKScene {
         view.addGestureRecognizer(swipeDown)
     }
     
-    @objc func swipeR() {
-        self.game.playerDirection = .RIGHT
-    }
-    @objc func swipeL() {
-        self.game.playerDirection = .LEFT
-    }
-    @objc func swipeU() {
-        self.game.playerDirection = .UP
-    }
-    @objc func swipeD() {
-        self.game.playerDirection = .DOWN
-    }
+    @objc func swipeR() { game.changeDirection(.RIGHT) }
+    @objc func swipeL() { game.changeDirection(.LEFT) }
+    @objc func swipeU() { game.changeDirection(.UP) }
+    @objc func swipeD() {  game.changeDirection(.DOWN) }
     
     override func update(_ currentTime: TimeInterval) {
-        self.game.update(time: currentTime)
+        game.update(time: currentTime)
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             let location = touch.location(in: self)
-            let touchedNode = self.nodes(at: location)
+            let touchedNode = nodes(at: location)
             for node in touchedNode {
-                if node.name == "play_button" {
-                    startGame()
-                }
+                if node.name == "play_button" { startGame() }
             }
         }
     }
     
     private func startGame() {
-        //1
-        gameLogo.run(SKAction.move(by: CGVector(dx: 0, dy: 600), duration: 0.4)) {
-            self.gameLogo.isHidden = true
-        }
-        //2
-        playButton.run(SKAction.scale(to: 0, duration: 0.2)) {
+        self.gameBG.setScale(0)
+        self.currentScore.setScale(0)
+        
+        playButton.run(scaleOutAction) {
             self.playButton.isHidden = true
         }
-        //3
-        let bottomCorner = CGPoint(x: 0, y: (frame.size.height / -2) + 20)
-        bestScore.run(SKAction.move(to: bottomCorner, duration: 0.3)) {
-                self.gameBG.setScale(0)
-                self.currentScore.setScale(0)
-                self.gameBG.isHidden = false
-                self.currentScore.isHidden = false
-                self.gameBG.run(SKAction.scale(to: 1, duration: 0.4))
-                self.currentScore.run(SKAction.scale(to: 1, duration: 0.4))
+
+        gameLogo.run(moveOutsideTopAction) {
+            self.gameLogo.isHidden = true
+            self.gameBG.isHidden = false
+            self.currentScore.isHidden = false
+            self.currentScore.run(self.scaleInAction)
+            self.gameBG.run(self.scaleInAction) {
                 // Init game
                 self.game.initGame()
+            }
         }
     }
     
-    //3
     private func initializeMenu() {
         //Create game title
-        gameLogo = SKLabelNode(fontNamed: "ArialRoundedMTBold")
+        gameLogo = SKLabelNode(fontNamed: "Avenir Next")
         gameLogo.zPosition = 1
         gameLogo.position = CGPoint(x: 0, y: (frame.size.height / 2) - 200)
         gameLogo.fontSize = 60
@@ -124,7 +122,7 @@ class GameScene: SKScene {
         playButton.name = "play_button"
         playButton.zPosition = 1
         playButton.position = CGPoint(x: 0, y: (frame.size.height / -2) + 200)
-        playButton.fillColor = SKColor.cyan
+        playButton.fillColor = SKColor.green
         let topCorner = CGPoint(x: -50, y: 50)
         let bottomCorner = CGPoint(x: -50, y: -50)
         let middle = CGPoint(x: 50, y: 0)
@@ -136,7 +134,7 @@ class GameScene: SKScene {
     }
     
     private func initializeGameView() {
-        currentScore = SKLabelNode(fontNamed: "ArialRoundedMTBold")
+        currentScore = SKLabelNode(fontNamed: "Avenir Next")
         currentScore.zPosition = 1
         currentScore.position = CGPoint(x: 0, y: (frame.size.height / -2) + 60)
         currentScore.fontSize = 40
@@ -146,7 +144,7 @@ class GameScene: SKScene {
         self.addChild(currentScore)
         
         let width = frame.size.width - 200
-        let cellSize = width / CGFloat(game.numCols)
+        let cellSize = width  / CGFloat(game.numCols)
         let height = cellSize * CGFloat(game.numRows)
 
         let rect = CGRect(x: -width / 2, y: -height / 2, width: width, height: height)
@@ -181,4 +179,19 @@ class GameScene: SKScene {
             y -= cellSize
         }
     }
+    
+    func finishAnimation() {
+        currentScore.run(scaleOutAction) {
+            self.currentScore.isHidden = true
+        }
+        gameBG.run(scaleOutAction) {
+            self.gameBG.isHidden = true
+            self.gameLogo.isHidden = false
+            self.gameLogo.run(self.moveBackFromTopAction) {
+                self.playButton.isHidden = false
+                self.playButton.run(self.scaleInAction)
+            }
+        }
+    }
+
 }
